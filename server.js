@@ -1,5 +1,5 @@
 import express from "express";
-import { makeWASocket, useMultiFileAuthState } from "baileys";
+import { makeWASocket, useMultiFileAuthState } from "@adiwajshing/baileys";
 import qrcode from "qrcode";
 import { WebSocketServer } from "ws";
 import path from "path";
@@ -12,7 +12,7 @@ app.get("/", (req, res) => {
   res.sendFile(path.resolve("./index.html"));
 });
 
-// WebSocket for QR streaming
+// WebSocket server for QR code streaming
 const wss = new WebSocketServer({ noServer: true });
 const clients = new Set();
 
@@ -29,14 +29,14 @@ app.server.on("upgrade", (request, socket, head) => {
   });
 });
 
-// Emit QR to all clients
+// Broadcast QR code to all connected clients
 function broadcastQR(qrImage) {
   clients.forEach((ws) => {
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ qr: qrImage }));
   });
 }
 
-// Fake QR for testing (every 5 seconds)
+// Fake QR code for frontend testing (every 5s)
 async function emitFakeQR() {
   const fakeQR = Math.random().toString(36).substring(2, 12);
   const qrImage = await qrcode.toDataURL(fakeQR);
@@ -44,7 +44,7 @@ async function emitFakeQR() {
 }
 setInterval(emitFakeQR, 5000);
 
-// Start Baileys WhatsApp socket (optional)
+// Start Baileys WhatsApp socket
 async function startWhatsApp() {
   try {
     const { state, saveCreds } = await useMultiFileAuthState("auth_info");
@@ -69,5 +69,5 @@ async function startWhatsApp() {
   }
 }
 
-// Uncomment this to use real WhatsApp session
+// Uncomment to use real WhatsApp session
 // startWhatsApp();
