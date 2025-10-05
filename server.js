@@ -1,5 +1,5 @@
 import express from "express";
-import { makeWASocket, useMultiFileAuthState } from "@adiwajshing/baileys";
+import { makeWASocket, useMultiFileAuthState } from "@baileys";
 import qrcode from "qrcode";
 import { WebSocketServer } from "ws";
 import path from "path";
