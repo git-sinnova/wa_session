@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WhatsApp QR Test</title>
+</head>
+<body>
+<div id="whatsapp-qr" style="width:200px; height:200px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center;">
+  <p>Waiting for QR...</p>
+</div>
+
+<script>
+  const ws = new WebSocket(`ws://${location.hostname}:${location.port}`);
+
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.qr) {
+      document.getElementById("whatsapp-qr").innerHTML =
+        `<img src="${data.qr}" style="width:100%; height:100%;" />`;
+    }
+  };
+
+  ws.onopen = () => console.log("Connected to QR WebSocket");
+  ws.onerror = (err) => console.error("WebSocket error:", err);
+</script>
+</body>
+</html>
