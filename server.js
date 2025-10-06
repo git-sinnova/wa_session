@@ -1,43 +1,63 @@
 import express from "express";
 import { WebSocketServer } from "ws";
-import qrcode from "qrcode";
 import http from "http";
+import cors from "cors";
+import { makeWASocket, useMultiFileAuthState } from "@whiskeysockets/baileys";
+import qrcode from "qrcode";
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-app.use(express.static("public"));
-
-// Serve main QR page
-app.get("/", (req, res) => {
-  res.sendFile(new URL("./index.html", import.meta.url).pathname);
+app.use(cors({ origin: "*" }));
+app.use((req, res, next) => {
+  res.setHeader("X-Frame-Options", "ALLOWALL");
+  next();
 });
 
-// Broadcast QR to all connected clients
+app.get("/", (req, res) => {
+  res.send("Baileys QR Server running");
+});
+
 function broadcastQR(qrDataURL) {
-  wss.clients.forEach(client => {
-    if (client.readyState === 1) {
-      client.send(JSON.stringify({ qr: qrDataURL }));
+  wss.clients.forEach(c => {
+    if (c.readyState === 1) c.send(JSON.stringify({ qr: qrDataURL }));
+  });
+}
+
+async function startSocket() {
+  const { state, saveCreds } = await useMultiFileAuthState("./auth_info_multi");
+
+  const sock = makeWASocket({
+    printQRInTerminal: true,
+    auth: state,
+    browser: ["Render", "Chrome", "4.0"],
+  });
+
+  sock.ev.on("creds.update", saveCreds);
+
+  // Baileys emits qr every few seconds until linked
+  sock.ev.on("connection.update", async (update) => {
+    const { qr, connection } = update;
+
+    if (qr) {
+      const qrDataURL = await qrcode.toDataURL(qr);
+      broadcastQR(qrDataURL);
+    }
+
+    if (connection === "open") {
+      console.log("✅ WhatsApp connected");
+      broadcastQR(""); // clear QR once connected
     }
   });
 }
 
-// Simulate new QR every 10s
-async function emitFakeQR() {
-  const randomText = `Session-${Math.floor(Math.random() * 999999)}`;
-  const qr = await qrcode.toDataURL(randomText);
-  broadcastQR(qr);
-}
+startSocket().catch(err => console.error("Socket error", err));
 
-// Re-emit fake QR every 10 seconds
-setInterval(emitFakeQR, 10000);
-emitFakeQR();
-
-wss.on("connection", ws => {
-  console.log("Client connected to QR WebSocket");
-  emitFakeQR();
-});
+// keep-alive: if no QR arrives within 15 s, ping clients
+setInterval(() => {
+  broadcastQR(""); // this also prevents stale QR in UI
+}, 15000);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on ${PORT}`));

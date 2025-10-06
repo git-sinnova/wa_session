@@ -7,9 +7,10 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.20",
     "express": "^4.19.2",
-    "ws": "^8.18.0",
-    "qrcode": "^1.5.3"
+    "qrcode": "^1.5.3",
+    "ws": "^8.18.0"
   },
   "engines": {
     "node": ">=18.x"
