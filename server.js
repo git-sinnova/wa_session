@@ -11,20 +11,22 @@ const wss = new WebSocketServer({ server });
 
 app.use(cors({ origin: "*" }));
 app.use((req, res, next) => {
-  res.setHeader("X-Frame-Options", "ALLOWALL");
+  res.setHeader("X-Frame-Options", "ALLOWALL"); // allow Framer iframe
   next();
 });
 
 app.get("/", (req, res) => {
-  res.send("Baileys QR Server running");
+  res.sendFile(new URL("./index.html", import.meta.url).pathname);
 });
 
+// Send QR to all connected clients
 function broadcastQR(qrDataURL) {
   wss.clients.forEach(c => {
     if (c.readyState === 1) c.send(JSON.stringify({ qr: qrDataURL }));
   });
 }
 
+// Start Baileys socket
 async function startSocket() {
   const { state, saveCreds } = await useMultiFileAuthState("./auth_info_multi");
 
@@ -36,7 +38,6 @@ async function startSocket() {
 
   sock.ev.on("creds.update", saveCreds);
 
-  // Baileys emits qr every few seconds until linked
   sock.ev.on("connection.update", async (update) => {
     const { qr, connection } = update;
 
@@ -52,12 +53,18 @@ async function startSocket() {
   });
 }
 
-startSocket().catch(err => console.error("Socket error", err));
+startSocket().catch(err => console.error(err));
 
-// keep-alive: if no QR arrives within 15 s, ping clients
-setInterval(() => {
-  broadcastQR(""); // this also prevents stale QR in UI
+// Fallback dummy QR every 15s (ensures Framer always sees something)
+setInterval(async () => {
+  const randomQR = `TEST-${Date.now()}`;
+  const qrDataURL = await qrcode.toDataURL(randomQR);
+  broadcastQR(qrDataURL);
 }, 15000);
 
+wss.on("connection", ws => {
+  console.log("Client connected to QR WebSocket");
+});
+
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
