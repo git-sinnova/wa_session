@@ -1,4 +1,4 @@
-import makeWASocket, { useMultiFileAuthState, DisconnectReason } from "baileys";
+import makeWASocket, { useMultiFileAuthState, DisconnectReason } from "@baileys";
 import qrcode from "qrcode-terminal";
 
 async function startWhatsApp() {
