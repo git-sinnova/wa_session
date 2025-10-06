@@ -1,73 +1,43 @@
 import express from "express";
-import { makeWASocket, useMultiFileAuthState } from "baileys";
-import qrcode from "qrcode";
 import { WebSocketServer } from "ws";
-import path from "path";
+import qrcode from "qrcode";
+import http from "http";
 
 const app = express();
-const port = process.env.PORT || 3000;
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
 
-// Serve index.html for testing
+app.use(express.static("public"));
+
+// Serve main QR page
 app.get("/", (req, res) => {
-  res.sendFile(path.resolve("./index.html"));
+  res.sendFile(new URL("./index.html", import.meta.url).pathname);
 });
 
-// WebSocket server for QR code streaming
-const wss = new WebSocketServer({ noServer: true });
-const clients = new Set();
-
-wss.on("connection", (ws) => {
-  clients.add(ws);
-  ws.on("close", () => clients.delete(ws));
-});
-
-// Upgrade HTTP -> WS
-app.server = app.listen(port, () => console.log(`Server running on port ${port}`));
-app.server.on("upgrade", (request, socket, head) => {
-  wss.handleUpgrade(request, socket, head, (ws) => {
-    wss.emit("connection", ws, request);
-  });
-});
-
-// Broadcast QR code to all connected clients
-function broadcastQR(qrImage) {
-  clients.forEach((ws) => {
-    if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ qr: qrImage }));
+// Broadcast QR to all connected clients
+function broadcastQR(qrDataURL) {
+  wss.clients.forEach(client => {
+    if (client.readyState === 1) {
+      client.send(JSON.stringify({ qr: qrDataURL }));
+    }
   });
 }
 
-// Fake QR code for frontend testing (every 5s)
+// Simulate new QR every 10s
 async function emitFakeQR() {
-  const fakeQR = Math.random().toString(36).substring(2, 12);
-  const qrImage = await qrcode.toDataURL(fakeQR);
-  broadcastQR(qrImage);
-}
-setInterval(emitFakeQR, 5000);
-
-// Start Baileys WhatsApp socket
-async function startWhatsApp() {
-  try {
-    const { state, saveCreds } = await useMultiFileAuthState("auth_info");
-    const sock = makeWASocket({ auth: state, printQRInTerminal: false });
-
-    sock.ev.on("connection.update", async (update) => {
-      const { qr, connection } = update;
-
-      if (qr) {
-        const qrImage = await qrcode.toDataURL(qr);
-        broadcastQR(qrImage);
-      }
-
-      if (connection === "open") {
-        console.log("WhatsApp connected!");
-      }
-    });
-
-    sock.ev.on("creds.update", saveCreds);
-  } catch (err) {
-    console.error("Baileys start error:", err);
-  }
+  const randomText = `Session-${Math.floor(Math.random() * 999999)}`;
+  const qr = await qrcode.toDataURL(randomText);
+  broadcastQR(qr);
 }
 
-// Uncomment to use real WhatsApp session
-// startWhatsApp();
+// Re-emit fake QR every 10 seconds
+setInterval(emitFakeQR, 10000);
+emitFakeQR();
+
+wss.on("connection", ws => {
+  console.log("Client connected to QR WebSocket");
+  emitFakeQR();
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
