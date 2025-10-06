@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-// Allow Framer embed
+// Allow Framer iframe embedding
 app.use(cors({ origin: "*" }));
 app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "ALLOWALL");
@@ -29,12 +29,13 @@ function broadcastQR(qrDataURL) {
   });
 }
 
-// Force session reset for testing (optional)
+// Force session reset to ensure fresh QR
 if (fs.existsSync("./auth_info_multi")) {
   console.log("🗑 Removing old auth_info_multi for fresh QR");
   fs.rmSync("./auth_info_multi", { recursive: true, force: true });
 }
 
+// Start Baileys WhatsApp socket
 async function startSocket() {
   const { state, saveCreds } = await useMultiFileAuthState("./auth_info_multi");
 
@@ -44,12 +45,15 @@ async function startSocket() {
     browser: ["Render", "Chrome", "4.0"],
   });
 
+  // Save credentials
   sock.ev.on("creds.update", saveCreds);
 
+  // Listen for connection updates
   sock.ev.on("connection.update", async update => {
     const { qr, connection } = update;
 
     if (qr) {
+      // Convert QR to image
       const qrDataURL = await qrcode.toDataURL(qr);
       broadcastQR(qrDataURL);
       console.log("📌 QR sent to clients");
@@ -57,7 +61,7 @@ async function startSocket() {
 
     if (connection === "open") {
       console.log("✅ WhatsApp connected");
-      broadcastQR(""); // clear QR once connected
+      broadcastQR(""); // clear QR
     }
 
     if (connection === "close") {
@@ -66,10 +70,10 @@ async function startSocket() {
   });
 }
 
-// Start Baileys
+// Launch WhatsApp socket
 startSocket().catch(err => console.error("Socket error:", err));
 
-// WebSocket client connections
+// Handle WebSocket client connections
 wss.on("connection", ws => {
   console.log("Client connected to QR WebSocket");
 });
