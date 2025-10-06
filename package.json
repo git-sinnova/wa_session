@@ -6,7 +6,7 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "@adiwajshing/baileys": "^5.0.15",
+    "baileys": "^6.7.9",
     "express": "^4.18.2",
     "qrcode": "^1.5.1",
     "ws": "^8.13.0"
