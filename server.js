@@ -4,6 +4,7 @@ import http from "http";
 import cors from "cors";
 import { makeWASocket, useMultiFileAuthState } from "@whiskeysockets/baileys";
 import qrcode from "qrcode";
+import fs from "fs";
 
 const app = express();
 const server = http.createServer(app);
@@ -16,19 +17,24 @@ app.use((req, res, next) => {
   next();
 });
 
-// Optional route
+// Optional HTTP route
 app.get("/", (req, res) => {
   res.send("WhatsApp QR Server running");
 });
 
-// Broadcast QR to connected clients
+// Broadcast QR to all connected WebSocket clients
 function broadcastQR(qrDataURL) {
   wss.clients.forEach(client => {
     if (client.readyState === 1) client.send(JSON.stringify({ qr: qrDataURL }));
   });
 }
 
-// Start Baileys socket
+// Force session reset for testing (optional)
+if (fs.existsSync("./auth_info_multi")) {
+  console.log("🗑 Removing old auth_info_multi for fresh QR");
+  fs.rmSync("./auth_info_multi", { recursive: true, force: true });
+}
+
 async function startSocket() {
   const { state, saveCreds } = await useMultiFileAuthState("./auth_info_multi");
 
@@ -51,7 +57,7 @@ async function startSocket() {
 
     if (connection === "open") {
       console.log("✅ WhatsApp connected");
-      broadcastQR(""); // clear QR
+      broadcastQR(""); // clear QR once connected
     }
 
     if (connection === "close") {
@@ -60,10 +66,10 @@ async function startSocket() {
   });
 }
 
-// Launch socket
+// Start Baileys
 startSocket().catch(err => console.error("Socket error:", err));
 
-// Log WebSocket connections
+// WebSocket client connections
 wss.on("connection", ws => {
   console.log("Client connected to QR WebSocket");
 });
