@@ -9,19 +9,19 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-// CORS & iframe embed for Framer
+// Allow Framer embed
 app.use(cors({ origin: "*" }));
 app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "ALLOWALL");
   next();
 });
 
-// Simple route (optional)
+// Optional route
 app.get("/", (req, res) => {
   res.send("WhatsApp QR Server running");
 });
 
-// Broadcast QR to all connected WebSocket clients
+// Broadcast QR to connected clients
 function broadcastQR(qrDataURL) {
   wss.clients.forEach(client => {
     if (client.readyState === 1) client.send(JSON.stringify({ qr: qrDataURL }));
@@ -51,7 +51,7 @@ async function startSocket() {
 
     if (connection === "open") {
       console.log("✅ WhatsApp connected");
-      broadcastQR(""); // clear QR on clients
+      broadcastQR(""); // clear QR
     }
 
     if (connection === "close") {
@@ -60,7 +60,7 @@ async function startSocket() {
   });
 }
 
-// Start the socket
+// Launch socket
 startSocket().catch(err => console.error("Socket error:", err));
 
 // Log WebSocket connections
